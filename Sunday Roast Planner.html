@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sunday Roast Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: sticky "next up" bar, a visual plan (gantt, oven, shelves) on top, then a checklist timeline, timer dock fixed at the bottom. */
+:root{
+  --bg:#f2f3ef; --surface:#ffffff; --surface2:#eaece6; --ink:#1c2330; --muted:#586172; --line:#d6dad1;
+  --accent:#9b2335; --accent-ink:#ffffff;
+  --beef:#9b2335; --spud:#8f6a00; --veg:#2d6a4f; --yorkie:#b3541e; --gravy:#6d4a32; --prep:#46607a; --oven:#b86a0b;
+  --ok:#2d6a4f; --warn:#b86a0b; --bad:#b3261e;
+  --font-display:'Bricolage Grotesque','Segoe UI',system-ui,sans-serif;
+  --font-body:'Figtree','Segoe UI',system-ui,-apple-system,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#13171e; --surface:#1c222c; --surface2:#262d39; --ink:#e9ecf1; --muted:#9aa4b3; --line:#323a48;
+    --accent:#ff7b8d; --accent-ink:#22090d;
+    --beef:#ff7b8d; --spud:#e5b93c; --veg:#6fcf97; --yorkie:#ff9a62; --gravy:#c99c7c; --prep:#8db0d1; --oven:#f0a940;
+    --ok:#6fcf97; --warn:#f0a940; --bad:#ff8a80;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#13171e; --surface:#1c222c; --surface2:#262d39; --ink:#e9ecf1; --muted:#9aa4b3; --line:#323a48;
+  --accent:#ff7b8d; --accent-ink:#22090d;
+  --beef:#ff7b8d; --spud:#e5b93c; --veg:#6fcf97; --yorkie:#ff9a62; --gravy:#c99c7c; --prep:#8db0d1; --oven:#f0a940;
+  --ok:#6fcf97; --warn:#f0a940; --bad:#ff8a80;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:16px;line-height:1.45;padding-bottom:150px}
+h1,h2,h3{font-family:var(--font-display);text-wrap:balance;margin:0}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.wrap{max-width:1000px;margin:0 auto;padding:0 16px}
+
+/* top bar */
+.topbar{position:sticky;top:0;z-index:20;background:var(--surface);border-bottom:1px solid var(--line);box-shadow:0 2px 10px rgba(0,0,0,.06)}
+.topbar .wrap{display:flex;align-items:center;gap:14px;padding-top:10px;padding-bottom:10px}
+.clock{font-family:var(--font-display);font-weight:800;font-size:1.6rem;font-variant-numeric:tabular-nums;min-width:4.4ch}
+.next{flex:1;min-width:0}
+.next .lbl{font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.next .what{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.next .when{font-size:.9rem;color:var(--muted)}
+.next.late .when{color:var(--bad);font-weight:700}
+.next.go .when{color:var(--ok);font-weight:700}
+.prog{height:4px;background:var(--surface2)}
+.prog i{display:block;height:100%;background:var(--ok);width:0;transition:width .3s}
+
+header.hero{padding:22px 0 8px}
+header.hero h1{font-size:clamp(1.9rem,6vw,3rem);font-weight:800;line-height:1.05}
+header.hero p{margin:8px 0 0;color:var(--muted);max-width:62ch}
+.controls{display:flex;flex-wrap:wrap;gap:10px 18px;margin-top:16px;align-items:center}
+.ctl{display:flex;align-items:center;gap:8px;font-size:.85rem;color:var(--muted);font-weight:600}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
+.seg button{border:0;background:transparent;padding:8px 12px;font-weight:600;min-height:40px}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.pill{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 12px;font-weight:600;min-height:40px}
+.pill[aria-pressed="true"]{background:var(--ok);color:#fff;border-color:var(--ok)}
+:root[data-theme="dark"] .pill[aria-pressed="true"]{color:#06210f}
+
+section{margin-top:26px}
+section>h2{font-size:1.35rem;margin-bottom:10px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px}
+
+/* beef target */
+.target{display:grid;grid-template-columns:auto 1fr;gap:6px 18px;align-items:center;border-left:6px solid var(--beef)}
+.target .big{font-family:var(--font-display);font-weight:800;font-size:2.6rem;line-height:1;color:var(--beef);font-variant-numeric:tabular-nums}
+.target .big small{font-size:1rem;font-weight:600;color:var(--muted)}
+.ladder{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.ladder span{background:var(--surface2);border-radius:8px;padding:6px 10px;font-size:.88rem}
+.ladder b{font-variant-numeric:tabular-nums}
+@media (max-width:520px){.target{grid-template-columns:1fr}}
+
+/* gantt */
+.gwrap{overflow-x:auto;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.gantt{min-width:900px;padding:10px 12px 12px;position:relative}
+.grow{display:grid;grid-template-columns:78px 1fr;align-items:center;margin-top:6px}
+.grow .name{font-weight:700;font-size:.85rem}
+.track{position:relative;height:28px;background:var(--surface2);border-radius:6px;opacity:1}
+.track i{position:absolute;top:0;bottom:0;width:1px;background:var(--line)}
+.bar{position:absolute;top:3px;height:22px;border-radius:5px;font-size:.7rem;font-weight:700;color:#fff;line-height:22px;padding:0 5px;white-space:nowrap;overflow:hidden;text-overflow:clip}
+:root[data-theme="dark"] .bar{color:#111}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .bar{color:#111}}
+.bar.soft{opacity:.35;font-weight:600}
+.bar.beef{background:var(--beef)}.bar.spud{background:var(--spud)}.bar.veg{background:var(--veg)}
+.bar.yorkie{background:var(--yorkie)}.bar.gravy{background:var(--gravy)}.bar.oven{background:var(--oven)}
+.axis{display:grid;grid-template-columns:78px 1fr}
+.axis .ticks{position:relative;height:18px}
+.axis .ticks span{position:absolute;transform:translateX(-50%);font-size:.72rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.vline{position:absolute;top:30px;bottom:6px;width:2px;pointer-events:none}
+.vline.serve{background:var(--accent)}
+.vline.now{background:var(--ink);opacity:.6}
+.vtag{position:absolute;top:14px;font-size:.68rem;font-weight:800;transform:translateX(-50%);padding:1px 5px;border-radius:4px;white-space:nowrap}
+.vtag.serve{background:var(--accent);color:var(--accent-ink)}
+.vtag.now{background:var(--ink);color:var(--bg)}
+.legend{font-size:.82rem;color:var(--muted);margin:8px 2px 0}
+
+/* shelves */
+.tablewrap{overflow-x:auto}
+table.shelves{border-collapse:collapse;width:100%;min-width:560px;font-size:.92rem}
+.shelves th,.shelves td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+.shelves th{background:var(--surface2);font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.shelves td.e{color:var(--muted)}
+.chipb{font-weight:700}
+.chipb.b{color:var(--beef)}.chipb.p{color:var(--spud)}.chipb.c{color:var(--veg)}.chipb.y{color:var(--yorkie)}
+
+.dm{position:absolute;top:7px;width:14px;height:14px;margin-left:-7px;border-radius:50%;background:var(--accent);border:2px solid var(--surface)}
+.doors{width:100%}
+/* checklists */
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+.chk{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+.chk label{display:flex;gap:10px;align-items:flex-start;padding:6px 4px;border-radius:8px;cursor:pointer}
+.chk input,.task input[type=checkbox]{width:22px;height:22px;margin:1px 0 0;flex:none;accent-color:var(--ok)}
+.chk li.on label span{text-decoration:line-through;color:var(--muted)}
+.card h3{font-size:1.05rem;margin-bottom:8px}
+
+/* timeline */
+.phase{margin:26px 0 8px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.phase h2{font-size:1.25rem}
+.phase span{color:var(--muted);font-size:.9rem}
+.task{display:grid;grid-template-columns:76px 1fr;gap:12px;background:var(--surface);border:1px solid var(--line);border-left:6px solid var(--prep);border-radius:12px;padding:12px 14px;margin-bottom:10px;scroll-margin-top:90px}
+.task.beef{border-left-color:var(--beef)}.task.spud{border-left-color:var(--spud)}.task.veg{border-left-color:var(--veg)}
+.task.yorkie{border-left-color:var(--yorkie)}.task.gravy{border-left-color:var(--gravy)}.task.oven{border-left-color:var(--oven)}
+.task.now{box-shadow:0 0 0 3px var(--accent)}
+.task.done{opacity:.55}
+.task.done .title{text-decoration:line-through}
+.task .time{font-family:var(--font-display);font-weight:800;font-size:1.45rem;font-variant-numeric:tabular-nums;line-height:1.1}
+.task .time small{display:block;font-family:var(--font-body);font-weight:600;font-size:.76rem;color:var(--muted);margin-top:2px}
+.task .head{display:flex;gap:10px;align-items:flex-start;cursor:pointer}
+.task .title{font-weight:700;font-size:1.08rem;flex:1}
+.tag{font-size:.68rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:2px 7px;border-radius:999px;background:var(--surface2);color:var(--muted);white-space:nowrap}
+.steps{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:0}
+.steps label{display:flex;gap:10px;align-items:flex-start;padding:5px 0;cursor:pointer}
+.steps li.on span{text-decoration:line-through;color:var(--muted)}
+.note{margin:8px 0 0;padding:8px 10px;background:var(--surface2);border-radius:8px;font-size:.9rem}
+.note.warn{border-left:4px solid var(--warn)}
+.timers{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.tbtn{background:var(--ink);color:var(--bg);border:0;border-radius:10px;padding:9px 14px;font-weight:700;min-height:42px}
+.tbtn:active{transform:scale(.98)}
+@media (max-width:520px){.task{grid-template-columns:1fr;gap:4px}.task .time{display:flex;gap:10px;align-items:baseline}.task .time small{margin:0}}
+
+.tips{display:grid;gap:10px}
+.tips .card p{margin:4px 0 0}
+
+/* dock */
+.dock{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--surface);border-top:1px solid var(--line);box-shadow:0 -4px 16px rgba(0,0,0,.12);padding:8px 0 10px}
+.dock .wrap{display:flex;gap:10px;align-items:stretch;overflow-x:auto}
+.dt{flex:none;min-width:190px;background:var(--surface2);border-radius:12px;padding:8px 10px;position:relative;overflow:hidden}
+.dt .l{font-size:.78rem;font-weight:700;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px}
+.dt .r{font-family:var(--font-display);font-weight:800;font-size:1.7rem;font-variant-numeric:tabular-nums;line-height:1.1}
+.dt .b{display:flex;gap:6px;margin-top:4px}
+.dt .b button{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:4px 9px;font-size:.78rem;font-weight:700;min-height:32px}
+.dt .bar2{position:absolute;left:0;bottom:0;height:4px;background:var(--accent)}
+.dt.done{background:var(--accent);color:var(--accent-ink);animation:flash 1s steps(2) infinite}
+.dt.done .l{color:var(--accent-ink)}
+@keyframes flash{50%{filter:brightness(1.25)}}
+@media (prefers-reduced-motion:reduce){.dt.done{animation:none}}
+.quick{flex:none;display:flex;flex-direction:column;gap:4px;justify-content:center;font-size:.78rem;font-weight:700;color:var(--muted)}
+.quick div{display:flex;gap:6px}
+.quick button{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:6px 10px;font-weight:700;min-height:34px}
+.empty{align-self:center;color:var(--muted);font-size:.9rem;padding:0 6px}
+footer{margin-top:30px;color:var(--muted);font-size:.85rem}
+</style>
+</head>
+<body>
+
+<div class="topbar" role="region" aria-label="Next step">
+  <div class="wrap">
+    <div class="clock" id="clock">--:--</div>
+    <div class="next" id="next">
+      <div class="lbl">Next up</div>
+      <div class="what" id="nextWhat">Loading</div>
+      <div class="when" id="nextWhen"></div>
+    </div>
+    <button class="pill" id="jump" type="button">Jump to it</button>
+  </div>
+  <div class="prog" aria-hidden="true"><i id="prog"></i></div>
+</div>
+
+<main class="wrap">
+  <header class="hero">
+    <h1>Sunday roast planner</h1>
+    <p>Dinner for two: herbed, basted beef silverside pulled rare, Maris Piper roasties, roast carrots, cavolo nero, granule gravy with beef pot and wine, and Jamie's yorkies. The oven stays at one temperature from start to finish, and every opening of the door is planned. Tick things off, hit the timer buttons, and the bar above always shows what is next.</p>
+    <div class="controls">
+      <div class="ctl">Serve at
+        <div class="seg" id="segServe" role="group" aria-label="Serve time">
+          <button type="button" data-v="17:30">17:30</button>
+          <button type="button" data-v="17:35">17:35</button>
+          <button type="button" data-v="17:45">17:45</button>
+          <button type="button" data-v="18:00">18:00</button>
+        </div>
+      </div>
+      <div class="ctl">Oven
+        <div class="seg" id="segOven" role="group" aria-label="Oven type">
+          <button type="button" data-v="fan">Fan</button>
+          <button type="button" data-v="conv">Conventional</button>
+        </div>
+      </div>
+      <button class="pill" id="btnSound" type="button" aria-pressed="false">Alarm sound: off</button>
+      <button class="pill" id="btnWake" type="button" aria-pressed="false">Keep screen on: off</button>
+      <button class="pill" id="btnReset" type="button">Reset ticks</button>
+    </div>
+  </header>
+
+  <section aria-labelledby="h-beef">
+    <h2 id="h-beef">The beef</h2>
+    <div class="card target">
+      <div class="big" id="bigTemp">46°C <small>pull from oven</small></div>
+      <div>Rare, as you asked: <b>pull at 46°C</b> in the thickest part. Under a tight foil and tea towel tent it climbs about 4 to 6°C, finishing around <b>50 to 52°C</b>. Silverside is a lean, firm cut, so slice it thin across the grain. Keep the string on while it roasts and snip it off before carving.
+        <div class="ladder">
+          <span>Pull at <b>44°C</b>: very rare, finishes about 49°C</span>
+          <span>Pull at <b>46°C</b>: rare, finishes about 51°C</span>
+          <span>Pull at <b>48°C</b>: your maximum, finishes about 53°C</span>
+        </div>
+        <div class="note warn">Rare is only safe for a whole joint where just the outside has touched anything. If the pack says rolled, or the joint is several pieces tied together, the FSA says it should not be served rare. Check the label and the cut ends before you commit. At 200°C expect a thicker grey band under the crust than a slow roast would give.</div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-size">
+    <h2 id="h-size">Sized for two</h2>
+    <div class="card tablewrap">
+      <table class="shelves">
+        <thead><tr><th>What</th><th>How much for two</th><th>Tray or tin</th></tr></thead>
+        <tbody>
+          <tr><td><b class="chipb b">Beef</b></td><td>1.36kg joint (plenty left over)</td><td>Roasting tin about 28 x 22cm, deep sides, small enough that the juices do not scorch</td></tr>
+          <tr><td><b class="chipb p">Potatoes</b></td><td>4 to 5 medium Maris Pipers, about 900g, cut into 10 to 12 egg-sized chunks (5 to 6 each)</td><td>Heavy tray about 30 x 25cm, one layer with gaps between pieces</td></tr>
+          <tr><td><b class="chipb c">Carrots</b></td><td>8 small carrots, 4 per person, halved lengthways if thick</td><td>Tray about 25 x 20cm, or a ceramic dish, in a single layer. Quarter thick pieces. About 40 minutes in ceramic, 30 to 35 on metal</td></tr>
+          <tr><td><b class="chipb c">Cavolo nero</b></td><td>150 to 200g raw (it shrinks a lot)</td><td>Saucepan on the hob</td></tr>
+          <tr><td><b class="chipb y">Yorkies</b></td><td>Full recipe, bake 8 (4 each) filled about half way</td><td>12-hole cupcake tin, oil only in the 8 holes you use</td></tr>
+          <tr><td><b>Gravy</b></td><td>About 350ml</td><td>Small saucepan, warm jug</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-gantt">
+    <h2 id="h-gantt">The whole afternoon at a glance</h2>
+    <div class="gwrap"><div class="gantt" id="gantt"></div></div>
+    <p class="legend">Faded bars are waiting time. The red dots are every moment the oven door opens. The beef roast bar is an estimate (about 50 to 65 minutes at 200°C to reach 46°C): the probe decides.</p>
+  </section>
+
+  <section aria-labelledby="h-doors">
+    <h2 id="h-doors">Oven door moments</h2>
+    <div class="card tablewrap"><table class="shelves" id="doors"></table></div>
+    <p class="legend">Eight openings, each one batching every job into a single go. Between them the door stays shut, so the oven stays at one temperature. After 17:16 it does not open again until everything comes out.</p>
+  </section>
+
+  <section aria-labelledby="h-shelf">
+    <h2 id="h-shelf">What sits on which oven shelf</h2>
+    <div class="card tablewrap">
+      <table class="shelves" id="shelves"></table>
+    </div>
+    <p class="legend">One oven, one temperature, never more than three things in at once. Set the shelves at step 2 so the beef tin clears the shelf above it.</p>
+  </section>
+
+  <section aria-labelledby="h-before">
+    <h2 id="h-before">Before you start</h2>
+    <div class="cols">
+      <div class="card"><h3>Ingredients</h3><ul class="chk" id="ing"></ul></div>
+      <div class="card"><h3>Kit</h3><ul class="chk" id="kit"></ul></div>
+    </div>
+  </section>
+
+  <div id="timeline"></div>
+
+  <section aria-labelledby="h-tips">
+    <h2 id="h-tips">If it goes sideways</h2>
+    <div class="tips">
+      <div class="card"><h3>Beef hits 46°C early</h3><p>Take it out at the next door moment, or straight away if it is clearly there, and tent it tightly. It holds heat for about 40 minutes. Everything else carries on exactly as planned.</p></div>
+      <div class="card"><h3>Beef is not at 44°C by 17:00</h3><p>Leave it in and keep the oven where it is. Pick a later serve time above and every step after 15:00 slides back to match. Do not skip the rest.</p></div>
+      <div class="card"><h3>Yorkies are the fussy bit</h3><p>They need bubbling oil and a closed door. If the oil is not sizzling when the batter goes in, put the tin back for 2 minutes first. The beef is out of the oven by then, so nothing is in the way.</p></div>
+      <div class="card"><h3>Potatoes darkening too fast</h3><p>Shuffle the tray down a shelf at the next door moment. They can sit in the switched-off oven for 10 minutes without harm.</p></div>
+    </div>
+  </section>
+  <footer>Ticks, timers and settings are saved on this device, so a reload will not lose your place.</footer>
+</main>
+
+<div class="dock" role="region" aria-label="Timers">
+  <div class="wrap" id="dock"></div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  var BASE = 17*60+35;           // times below are written for a 17:35 serve
+  var START_SHIFT_FROM = 15*60;  // tasks from 15:00 slide with the serve time
+  var KEY = 'roast-planner-v1';
+  var nowOverride = null;
+
+  function pad(n){return String(n).padStart(2,'0');}
+  function hm(m){m=Math.round(m);return pad(Math.floor(m/60)%24)+':'+pad(m%60);}
+  function mins(s){var p=s.split(':');return (+p[0])*60+(+p[1]);}
+
+  var defaults = {done:{},steps:{},ing:{},kit:{},serve:'17:35',oven:'fan',sound:false,wake:false,timers:[]};
+  var state = load();
+  function load(){
+    try{
+      var s = JSON.parse(localStorage.getItem(KEY)||'{}');
+      var o = {}; for(var k in defaults) o[k] = (s[k]!==undefined)?s[k]:defaults[k];
+      return o;
+    }catch(e){ var o2={}; for(var k2 in defaults) o2[k2]=defaults[k2]; return o2; }
+  }
+  function save(){ try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){} }
+
+  function shift(){ return mins(state.serve) - BASE; }
+  function adj(m){ return m >= START_SHIFT_FROM ? m + shift() : m; }
+  function T(str){
+    return str.replace(/\{\{(\d+)\}\}/g,function(_,n){
+      n = +n; return state.oven==='conv' ? (n+20)+'°C (conventional)' : n+'°C fan';
+    });
+  }
+  function nowMin(){
+    if(nowOverride!==null) return nowOverride;
+    var d = new Date(); return d.getHours()*60+d.getMinutes()+d.getSeconds()/60;
+  }
+  function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+  /* ---------------- data ---------------- */
+  var PHASES = {
+    prep:'Prep now, no rush',
+    beef:'Oven on, beef in',
+    roast:'Roast phase and door moments',
+    final:'The final half hour'
+  };
+  var CAT = {beef:'Beef',spud:'Potatoes',veg:'Veg',yorkie:'Yorkies',gravy:'Gravy',oven:'Oven',prep:'Prep'};
+
+  var TASKS = [
+   {id:'herb',t:'14:00',d:8,c:'beef',p:'prep',title:'Herb the beef, then back in the fridge',
+    steps:['Take the beef out of its packaging and pat it very dry with kitchen paper','Finely chop 2 tbsp of rosemary and thyme leaves. Mix with 1 crushed garlic clove, 1 tbsp oil, 2 tsp flaky salt and plenty of black pepper','Rub the herb paste all over the joint, including the ends','Tuck a few whole sprigs under the string. Leave the string ON','Plate it, uncovered, and put it back in the fridge until 14:50'],
+    note:'It goes back in the fridge because the plan has it in the oven at 15:50, which would otherwise mean nearly two hours on the side. Keep the string on while roasting so the shape stays even. Snip it off just before carving.'},
+   {id:'kit',t:'14:10',d:5,c:'oven',p:'prep',title:'Get the trays out and set the oven shelves',
+    steps:['Roasting tin for the beef, about 28 x 22cm with deep sides (bigger and the juices scorch)','Potato tray about 30 x 25cm, heavy metal. Carrot tray about 25 x 20cm','12-hole cupcake tin (you only use 8 holes)','Probe thermometer. A leave-in one with a wire lets you read the temperature without opening the door','Foil, tea towel, big spoon for basting, tongs, spatula','Set the shelves now: beef on the bottom, potatoes in the middle, yorkie tin on top. Nothing goes in the oven yet'],
+    note:'Never more than three things are in the oven at once, one per shelf.'},
+   {id:'batter',t:'14:15',d:10,c:'yorkie',p:'prep',title:'Make the yorkie batter',
+    steps:['In a jug: 2 large eggs, 100g plain flour, 100ml milk, a pinch of salt and pepper','Whisk until smooth and light','Cover and put it in the fridge'],
+    note:'Jamie\'s full recipe, but you will bake 8 puddings (4 each), filled about half way. Plain flour only, never self-raising.'},
+   {id:'peel',t:'14:25',d:15,c:'spud',p:'prep',title:'Peel and chop the Maris Pipers',
+    steps:['Peel 4 to 5 medium potatoes (about 900g)','Cut into 10 to 12 even, egg-sized chunks, so 5 to 6 each','Put in a pan and cover with cold water. They wait there until 15:45'],
+    note:'Even sizes matter more than anything else here. Rough corners become the crunchy bits.'},
+   {id:'beefout',t:'14:50',d:2,c:'beef',p:'prep',title:'Beef out of the fridge',
+    steps:['Leave it on the side, loosely covered, away from the hob and any sunny window']},
+   {id:'carrots',t:'15:10',d:8,c:'veg',p:'prep',title:'Prep the carrots',
+    steps:['8 small carrots (4 each): scrub or peel, trim','Halve lengthways, and quarter any piece wider than about 2.5cm','In your dish or tray, toss with 1 tbsp oil and thyme leaves. Salt just before they go in','Spread in a single layer, not stacked'],
+    note:'They go in at the beef-out door moment and roast for about 40 minutes in a ceramic dish. A metal tray in one layer needs 30 to 35 minutes.'},
+   {id:'kaleprep',t:'15:20',d:8,c:'veg',p:'prep',title:'Prep the cavolo nero and garlic',
+    steps:['About 150 to 200g: strip the leaves from the tough stalks and bin the stalks','Wash and slice into 2cm ribbons, leave in the colander','Slice 1 clove of garlic. Butter out of the fridge. Lemon if using']},
+   {id:'ovenon',t:'15:30',d:2,c:'oven',p:'beef',title:'Oven on: {{200}}',
+    steps:['Switch it on and leave it to come fully up to temperature (20 minutes)','It now stays at this temperature for the whole cook']},
+   {id:'beeftin',t:'15:40',d:8,c:'beef',p:'beef',title:'Beef into its tin, probe in',
+    steps:['Put the joint in the roasting tin, drizzle with 1 tbsp oil','Push the probe sideways into the centre of the thickest part, not touching the tin','Set the probe alarm to 44°C if it has one','Check the herbs are still on top and the string is on']},
+   {id:'parboil',t:'15:45',d:18,c:'spud',p:'beef',title:'Parboil the potatoes',
+    steps:['Drain the peeling water, refill with fresh cold water to cover, add about 1 tsp salt. (Kettle water instead gets you to the boil in about 3 minutes)','Lid on, bring to the boil','Once boiling, turn down to a simmer and start the timer','Test: a knife slides into the edges but the centre still feels firm'],
+    timers:[{l:'Potatoes simmer',m:8}],
+    note:'Slightly past this stage is better than under. Too far and they collapse in the colander. Start the pan at 15:45 so they are ready with a buffer before the 16:25 fat.'},
+   {id:'beefin',t:'15:50',d:5,c:'beef',p:'beef',title:'BEEF IN',door:'Beef in on the bottom shelf, probe cable out through the door seal',
+    steps:['Bottom shelf, door shut','Start the timer. The first probe look is at 40 minutes'],
+    timers:[{l:'First beef probe look',m:40}],
+    note:'At 200°C, 1.36kg of silverside should reach 46°C in roughly 50 to 65 minutes. That is an estimate. The probe decides, not the clock.'},
+   {id:'dry',t:'16:03',d:7,c:'spud',p:'roast',title:'Drain, steam dry and rough up',
+    steps:['Drain into the colander and leave to steam for 5 minutes','Lid on the colander and shake hard for about 10 seconds to fluff the edges','Spread in a single layer on a large plate or board, uncovered (the potato tray is in the oven heating its fat)','Optional: toss with 1 tbsp semolina or flour for extra crunch'],
+    timers:[{l:'Potatoes steam dry',m:5}],
+    note:'They wait about 15 minutes until 16:25. Dry, fluffy edges are what crisp up.'},
+   {id:'baste1',t:'16:10',d:5,c:'beef',p:'roast',title:'Door moment 2: baste, potato fat in',door:'Baste the beef, potato tray with the fat goes in to heat',
+    steps:['Slide the beef shelf halfway out and spoon the tin juices and herbs over the top 4 or 5 times','Put the empty potato tray with 5 tbsp oil, goose fat or dripping on the middle shelf','Close the door. Start the 15 minute fat timer'],
+    timers:[{l:'Potato fat heating',m:15}],
+    note:'Herbs on top will darken at 200°C. That is normal, and basting keeps them from scorching.'},
+   {id:'baste2',t:'16:25',d:6,c:'spud',p:'roast',title:'Door moment 3: potatoes in, baste with butter',door:'Potatoes into the hot fat, butter and thyme into the beef tin and baste',
+    steps:['Take the potato tray out and close the oven door while you work','Tip the potatoes into the hot fat (they spit), turn each one to coat, one layer, sprinkle with salt','Reopen: tray back on the middle shelf','While open, add 20g butter and a thyme sprig to the beef tin and baste','Close the door']},
+   {id:'baste3',t:'16:40',d:5,c:'beef',p:'roast',title:'Door moment 4: baste, read the probe',door:'Baste the beef, read the probe',
+    steps:['Read the probe (through the door cable, or an instant-read through the open door)','Under 40°C: leave it. 40 to 43°C: nearly there, look again in 4 minutes. 44°C and up: take it out at the next step','Baste once more, close the door'],
+    timers:[{l:'Beef recheck',m:6}],
+    note:'No probe at all? This is the point where I would not trust a guess. Rare beef needs a thermometer. A cheap instant-read is worth a trip to the shop.',warn:true},
+   {id:'beefoutdoor',t:'16:50',d:6,c:'beef',p:'roast',title:'Door moment 5: BEEF OUT at 46°C, carrots in, turn the potatoes',door:'Beef out at 46°C, carrots onto the bottom shelf, turn the potatoes',
+    steps:['Probe reads 44 to 48°C: lift the beef onto a board or warm plate. Under 44°C: leave it and look again in 4 minutes','Tent tightly with foil and a tea towel. Do not carve','Carrots (add a pinch of salt) onto the bottom shelf, where the beef was','Turn the potatoes with a spatula in one go and shut the door','Leave the oven at 200°C. Do not change anything'],
+    timers:[{l:'Beef resting',m:28},{l:'Carrots done',m:40}],
+    note:'It climbs about 4 to 6°C while resting, so pulled at 46°C it finishes around 50 to 52°C. If it hits 46°C early, take it out straight away and tent it tightly. It holds for 40 minutes.',warn:true},
+   {id:'deglaze',t:'16:55',d:5,c:'gravy',p:'roast',title:'Deglaze the beef tin',
+    steps:['Pour off most of the fat, keeping the dark juices and herbs (about 2 tbsp)','Tin on the hob over a medium heat. Add about 50ml red wine and 100ml hot water','Scrape up everything stuck on and bubble for 2 minutes','Strain into the small gravy pan and leave it off the heat']},
+   {id:'oiltin',t:'17:00',d:3,c:'yorkie',p:'roast',title:'Oil in the yorkie tin, batter ready',
+    steps:['Pour about 1cm of vegetable oil into 8 holes of the tin','Whisk the batter again and pour it back into the jug. Cold is fine','Fill the kettle and switch it on']},
+   {id:'doors',t:'17:03',d:5,c:'yorkie',p:'roast',title:'Door moment 6: shake spuds, stir carrots, yorkie tin in',door:'Shake the potatoes, stir the carrots, yorkie tin on the top shelf',
+    steps:['Shake or turn the potatoes','Give the carrots a quick stir','Yorkie tin with the oil onto the top shelf','Close the door. It stays closed until the batter goes in'],
+    timers:[{l:'Yorkie tin heating',m:13}]},
+   {id:'gravy',t:'17:08',d:8,c:'gravy',p:'final',title:'Make the gravy',
+    steps:['Small pan: make up about 350ml of gravy from the granules, following the packet, using kettle water','Stir in a knob of intense beef pot','Add the strained tin juices and a splash of wine (about 1 tbsp)','Simmer 3 to 4 minutes, then keep on the lowest heat','Taste before salting. The beef pot is salty'],
+    note:'The beef\'s resting juices go in right at the end (17:24) so they keep their flavour.'},
+   {id:'batterin',t:'17:16',d:3,c:'yorkie',p:'final',title:'Door moment 7: BATTER IN. Door stays shut',door:'Batter into the sizzling tin, then do not open the door again',
+    steps:['The oil must be sizzling. Pour the batter into the 8 holes, about half full','Straight back on the top shelf and close the door (under 20 seconds)','Start the timer. Do not open the door'],
+    timers:[{l:'Yorkies baking',m:14}],
+    note:'Jamie\'s recipe says 12 to 15 minutes. Overfilling makes them collapse.',warn:true},
+   {id:'carve',t:'17:18',d:8,c:'beef',p:'final',title:'Carve the beef',
+    steps:['Snip off the string and pull it away','Slice thinly, 3 to 4mm, across the grain with a sharp, long knife','Pour the resting juices from the board into a small jug','Slices onto a warm platter, loosely covered with foil']},
+   {id:'kalewater',t:'17:20',d:5,c:'veg',p:'final',title:'Salted water on for the cavolo nero',
+    steps:['Pan of water, 1 tsp salt, lid on, boil','Run hot water in the sink, dip the plates and dry them. Warm plates matter more with rare beef']},
+   {id:'gravyfin',t:'17:24',d:4,c:'gravy',p:'final',title:'Finish the gravy',
+    steps:['Add the beef resting juices','Simmer 1 minute, taste, adjust','Pour into a warm jug']},
+   {id:'kale',t:'17:25',d:5,c:'veg',p:'final',title:'Cavolo nero in',
+    steps:['Kale into the boiling water','Drain well when the timer ends','Melt a knob of butter with the garlic for 1 minute in the same pan, toss the kale through, squeeze of lemon, season'],
+    timers:[{l:'Cavolo nero',m:4}]},
+   {id:'out',t:'17:30',d:5,c:'oven',p:'final',title:'Door moment 8: everything out',door:'Yorkies, potatoes and carrots out. Oven off',
+    steps:['Yorkies first, straight out of the tin onto a rack or plate so they do not steam','Potatoes and carrots into warm dishes','Oven off']},
+   {id:'serve',t:'17:35',d:10,c:'beef',p:'final',title:'Serve and eat',
+    steps:['Plates, beef, potatoes, carrots, kale, yorkies, gravy over the lot']}
+  ];
+
+  var ING = [
+    'Beef silverside joint, 1.36kg (leftovers make great sandwiches)',
+    'Maris Piper potatoes, 4 to 5 medium (about 900g)',
+    '8 small carrots',
+    'Cavolo nero, about 150 to 200g',
+    '2 large eggs, 100ml milk, 100g plain flour (yorkies)',
+    'Vegetable oil, and goose fat or dripping if you like',
+    'Rosemary and thyme, 1 or 2 cloves of garlic',
+    'Butter, salt, pepper',
+    'Gravy granules, intense beef pot, red wine',
+    'Optional: lemon, semolina'
+  ];
+  var KIT = [
+    'Probe thermometer, ideally a leave-in one with a wire',
+    'Roasting tin about 28 x 22cm for the beef',
+    'Heavy tray about 30 x 25cm for the potatoes',
+    'Carrot dish or tray, one layer: about 25 x 20cm metal, or a larger ceramic dish',
+    '12-hole cupcake tin for the yorkies',
+    'Pan and colander for the potatoes',
+    'Small saucepan for gravy, saucepan for the kale',
+    'Foil, clean tea towel, kitchen paper',
+    'Long sharp carving knife and board',
+    'Jug for batter, warm jug for gravy'
+  ];
+
+  /* gantt bars: [start, end, label, class, soft] */
+  var ROWS = [
+   {n:'Beef',bars:[['14:00','14:50','Herbed, chilling','beef',1],['14:50','15:50','On the side','beef',1],['15:50','16:50','Roast, baste, probe','beef'],['16:50','17:18','Rest','beef',1],['17:18','17:26','Carve','beef']]},
+   {n:'Potatoes',bars:[['14:25','14:40','Peel','spud'],['14:40','15:45','In cold water','spud',1],['15:45','16:03','Parboil','spud'],['16:03','16:10','Dry','spud'],['16:10','16:25','Fat heats','spud',1],['16:25','17:30','Roast','spud']]},
+   {n:'Carrots',bars:[['15:10','15:18','Prep','veg'],['16:50','17:30','Roast, about 40 min','veg']]},
+   {n:'Cavolo',bars:[['15:20','15:28','Prep','veg'],['17:20','17:25','Boil','veg',1],['17:25','17:29','Cook','veg']]},
+   {n:'Yorkies',bars:[['14:15','14:25','Mix','yorkie'],['14:25','17:00','Batter in the fridge','yorkie',1],['17:03','17:16','Tin heats','yorkie'],['17:16','17:30','Bake','yorkie']]},
+   {n:'Gravy',bars:[['16:55','17:00','Tin','gravy'],['17:08','17:30','Make, add juices, hold','gravy']]},
+   {n:'Oven',bars:[['15:30','15:50','Heat up','oven',1],['15:50','17:30','{{200}} the whole time','oven']]}
+  ];
+  var AX0 = 13*60+50, AX1 = 17*60+50;
+
+  var SHELF = [
+   ['15:50 to 16:10','empty','empty','Beef'],
+   ['16:10 to 16:25','empty','Potato tray (fat heating)','Beef'],
+   ['16:25 to 16:50','empty','Potatoes','Beef'],
+   ['16:50 to 17:03','empty','Potatoes','Carrots (in when the beef comes out)'],
+   ['17:03 to 17:16','Yorkie tin (oil heating)','Potatoes','Carrots'],
+   ['17:16 to 17:30','Yorkie tin (baking)','Potatoes','Carrots']
+  ];
+
+  /* ---------------- render ---------------- */
+  function renderBigTemp(){}
+  function renderChecklist(id, items, store){
+    var ul = document.getElementById(id); var h='';
+    items.forEach(function(txt,i){
+      var on = !!state[store][i];
+      h += '<li class="'+(on?'on':'')+'"><label><input type="checkbox" data-list="'+store+'" data-i="'+i+'"'+(on?' checked':'')+'><span>'+esc(txt)+'</span></label></li>';
+    });
+    ul.innerHTML = h;
+  }
+
+  function renderShelves(){
+    var h='<thead><tr><th>Time</th><th>Top shelf</th><th>Middle shelf</th><th>Bottom shelf</th></tr></thead><tbody>';
+    SHELF.forEach(function(r){
+      var t = r[0].replace(/(\d\d:\d\d)/g,function(x){return hm(adj(mins(x)));});
+      h += '<tr><td>'+t+'</td>';
+      for(var i=1;i<4;i++){
+        var v=r[i], cls='';
+        if(v.indexOf('empty')===0) cls='e';
+        else if(v.indexOf('Beef')===0) cls='chipb b'; else if(v.indexOf('Potato')===0) cls='chipb p';
+        else if(v.indexOf('Carrots')===0) cls='chipb c'; else if(v.indexOf('Yorkie')===0) cls='chipb y';
+        h += '<td class="'+cls+'">'+esc(v)+'</td>';
+      }
+      h += '</tr>';
+    });
+    document.getElementById('shelves').innerHTML = h+'</tbody>';
+  }
+  function renderDoors(){
+    var h='<thead><tr><th>Time</th><th>#</th><th>Do all of this in one go</th></tr></thead><tbody>';
+    TASKS.filter(function(k){return k.door;}).forEach(function(k,i){
+      h += '<tr><td><b>'+hm(adj(mins(k.t)))+'</b></td><td>'+(i+1)+'</td><td>'+esc(T(k.door))+'</td></tr>';
+    });
+    document.getElementById('doors').innerHTML = h+'</tbody>';
+  }
+
+  function pct(m){ return Math.max(0,Math.min(100,(m-AX0)/(AX1-AX0)*100)); }
+  function renderGantt(){
+    var h = '<div class="axis"><div></div><div class="ticks">';
+    for(var m=14*60;m<=17*60;m+=60){ h += '<span style="left:'+pct(m)+'%">'+hm(m)+'</span>'; }
+    h += '</div></div>';
+    ROWS.forEach(function(r){
+      h += '<div class="grow"><div class="name">'+r.n+'</div><div class="track">';
+      for(var hh=14*60;hh<=17*60;hh+=60){ h += '<i style="left:'+pct(hh)+'%"></i>'; }
+      r.bars.forEach(function(b){
+        var s = adj(mins(b[0])), e = adj(mins(b[1]));
+        var w = pct(e)-pct(s);
+        h += '<div class="bar '+b[3]+(b[4]?' soft':'')+'" style="left:'+pct(s)+'%;width:'+w+'%" title="'+esc(T(b[2]))+' '+hm(s)+' to '+hm(e)+'">'+(w>5.5?esc(T(b[2])):'')+'</div>';
+      });
+      h += '</div></div>';
+    });
+    h += '<div class="grow"><div class="name">Door opens</div><div class="track">';
+    TASKS.filter(function(k){return k.door;}).forEach(function(k){
+      var st = adj(mins(k.t));
+      h += '<b class="dm" style="left:'+pct(st)+'%" title="'+hm(st)+' '+esc(T(k.door))+'"></b>';
+    });
+    h += '</div></div>';
+    var serve = mins(state.serve);
+    h += '<div id="gl" style="position:absolute;left:90px;right:12px;top:0;bottom:0;pointer-events:none">'+
+         '<span class="vtag serve" style="left:'+pct(serve)+'%">Serve '+state.serve+'</span><div class="vline serve" style="left:'+pct(serve)+'%"></div>'+
+         '<span class="vtag now" id="nowTag" style="left:0;display:none">Now</span><div class="vline now" id="nowLine" style="left:0;display:none"></div></div>';
+    document.getElementById('gantt').innerHTML = h;
+    updateNowLine();
+  }
+  function updateNowLine(){
+    var n = nowMin(); var l=document.getElementById('nowLine'), t=document.getElementById('nowTag');
+    if(!l) return;
+    if(n>=AX0 && n<=AX1){ l.style.display='block'; t.style.display='block'; l.style.left=pct(n)+'%'; t.style.left=pct(n)+'%'; }
+    else { l.style.display='none'; t.style.display='none'; }
+  }
+
+  function renderTimeline(){
+    var h='', last='';
+    var list = TASKS.map(function(k){ return {k:k,at:adj(mins(k.t))}; });
+    var firstOfPhase = {}, lastOfPhase = {};
+    list.forEach(function(o){ var p=o.k.p; if(firstOfPhase[p]===undefined) firstOfPhase[p]=o.at; lastOfPhase[p]=o.at+o.k.d; });
+    list.forEach(function(o){
+      var k=o.k;
+      if(k.p!==last){
+        h += '<div class="phase"><h2>'+PHASES[k.p]+'</h2><span>'+hm(firstOfPhase[k.p])+' to '+hm(lastOfPhase[k.p])+'</span></div>';
+        last = k.p;
+      }
+      var done = !!state.done[k.id];
+      h += '<article class="task '+k.c+(done?' done':'')+'" id="t-'+k.id+'" data-at="'+o.at+'">';
+      h += '<div class="time">'+hm(o.at)+'<small>'+k.d+' min</small></div><div class="body">';
+      h += '<label class="head"><input type="checkbox" data-task="'+k.id+'"'+(done?' checked':'')+' aria-label="Mark done"><span class="title">'+esc(T(k.title))+'</span><span class="tag">'+CAT[k.c]+'</span></label>';
+      h += '<ul class="steps">';
+      k.steps.forEach(function(s,i){
+        var key = k.id+':'+i, on = !!state.steps[key];
+        h += '<li class="'+(on?'on':'')+'"><label><input type="checkbox" data-step="'+key+'"'+(on?' checked':'')+'><span>'+esc(T(s))+'</span></label></li>';
+      });
+      h += '</ul>';
+      if(k.note) h += '<div class="note'+(k.warn?' warn':'')+'">'+esc(T(k.note))+'</div>';
+      if(k.timers){
+        h += '<div class="timers">';
+        k.timers.forEach(function(tm){ h += '<button type="button" class="tbtn" data-timer="'+esc(tm.l)+'" data-min="'+tm.m+'">Start timer: '+esc(tm.l)+' ('+tm.m+' min)</button>'; });
+        h += '</div>';
+      }
+      h += '</div></article>';
+    });
+    document.getElementById('timeline').innerHTML = h;
+  }
+
+  function renderTips(){
+    document.querySelectorAll('.tt').forEach(function(el){ el.textContent = T('{{'+el.getAttribute('data-t')+'}}'); });
+  }
+
+  function renderControls(){
+    document.querySelectorAll('#segServe button').forEach(function(b){ b.setAttribute('aria-pressed', b.dataset.v===state.serve); });
+    document.querySelectorAll('#segOven button').forEach(function(b){ b.setAttribute('aria-pressed', b.dataset.v===state.oven); });
+    var s=document.getElementById('btnSound'); s.setAttribute('aria-pressed', !!state.sound); s.textContent='Alarm sound: '+(state.sound?'on':'off');
+    var w=document.getElementById('btnWake'); w.setAttribute('aria-pressed', !!state.wake); w.textContent='Keep screen on: '+(state.wake?'on':'off');
+  }
+
+  function renderAll(){
+    renderControls();
+    renderChecklist('ing',ING,'ing');
+    renderChecklist('kit',KIT,'kit');
+    renderShelves();
+    renderDoors();
+    renderGantt();
+    renderTimeline();
+    renderTips();
+    tick();
+  }
+
+  /* ---------------- banner ---------------- */
+  function nextTask(){
+    for(var i=0;i<TASKS.length;i++){ if(!state.done[TASKS[i].id]) return TASKS[i]; }
+    return null;
+  }
+  function tick(){
+    var n = nowMin();
+    document.getElementById('clock').textContent = hm(Math.floor(n));
+    var k = nextTask(), box=document.getElementById('next');
+    var what=document.getElementById('nextWhat'), when=document.getElementById('nextWhen');
+    box.className='next';
+    if(!k){ what.textContent='All done. Enjoy your dinner.'; when.textContent=''; }
+    else{
+      var at = adj(mins(k.t)), diff = at - n;
+      what.textContent = hm(at)+'  '+T(k.title);
+      if(diff > 1.5){ var d=Math.round(diff); when.textContent = d>=60 ? 'in '+Math.floor(d/60)+' h '+(d%60)+' min' : 'in '+d+' min'; }
+      else if(diff >= -1.5){ when.textContent='Now'; box.className='next go'; }
+      else{ when.textContent='Running '+Math.round(-diff)+' min behind. Tick it off or catch up'; box.className='next late'; }
+    }
+    var total=TASKS.length, doneN=TASKS.filter(function(x){return state.done[x.id];}).length;
+    document.getElementById('prog').style.width=(doneN/total*100)+'%';
+    // highlight current
+    var cur=null;
+    document.querySelectorAll('.task').forEach(function(el){ el.classList.remove('now'); if(parseFloat(el.dataset.at)<=n+0.5) cur=el; });
+    if(cur && !cur.classList.contains('done')) cur.classList.add('now');
+    updateNowLine();
+    tickTimers();
+  }
+
+  /* ---------------- timers ---------------- */
+  var ac=null, beepCount={};
+  function ensureAudio(){
+    try{ ac = ac || new (window.AudioContext||window.webkitAudioContext)(); if(ac.state==='suspended') ac.resume(); }catch(e){}
+  }
+  function beep(){
+    try{ if(navigator.vibrate) navigator.vibrate([300,120,300]); }catch(e){}
+    if(!state.sound) return; ensureAudio(); if(!ac) return;
+    [0,0.35,0.7].forEach(function(dl){
+      try{
+        var o=ac.createOscillator(), g=ac.createGain(); o.type='sine'; o.frequency.value=880;
+        o.connect(g); g.connect(ac.destination);
+        var t=ac.currentTime+dl;
+        g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.35,t+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t+0.26);
+        o.start(t); o.stop(t+0.3);
+      }catch(e){}
+    });
+  }
+  function addTimer(label,min){
+    state.timers.push({id:'t'+Date.now()+Math.floor(Math.random()*1000),label:label,end:Date.now()+min*60000,dur:min*60,fired:false});
+    save(); drawDock();
+  }
+  function fmt(s){ s=Math.max(0,Math.ceil(s)); return pad(Math.floor(s/60))+':'+pad(s%60); }
+  function drawDock(){
+    var h='';
+    state.timers.forEach(function(t){
+      var rem=(t.end-Date.now())/1000, done=rem<=0;
+      h += '<div class="dt'+(done?' done':'')+'" data-id="'+t.id+'"><div class="l">'+esc(t.label)+'</div><div class="r">'+(done?'DONE':fmt(rem))+'</div>'+
+           '<div class="b"><button type="button" data-act="add">+1 min</button><button type="button" data-act="rm">'+(done?'Dismiss':'Cancel')+'</button></div>'+
+           '<div class="bar2" style="width:'+(done?100:Math.max(0,(1-rem/t.dur)*100))+'%"></div></div>';
+    });
+    if(!state.timers.length) h += '<div class="empty">No timers running. Use the buttons in each step, or start a quick one.</div>';
+    h += '<div class="quick">Quick timer<div><button type="button" data-q="1">1 min</button><button type="button" data-q="5">5 min</button><button type="button" data-q="10">10 min</button></div></div>';
+    document.getElementById('dock').innerHTML = h;
+  }
+  function tickTimers(){
+    var changed=false, redraw=false;
+    state.timers.forEach(function(t){
+      var rem=(t.end-Date.now())/1000;
+      if(rem<=0 && !t.fired){ t.fired=true; changed=true; redraw=true; beepCount[t.id]=0; beep(); document.title='DONE: '+t.label; }
+      else if(rem<=0 && (beepCount[t.id]||0)<8 && Math.floor(-rem)%8===0){ beepCount[t.id]=(beepCount[t.id]||0)+1; beep(); }
+    });
+    if(changed) save();
+    // update only text to avoid replacing buttons mid-click
+    var nodes=document.querySelectorAll('#dock .dt');
+    if(nodes.length!==state.timers.length || redraw){ drawDock(); return; }
+    state.timers.forEach(function(t,i){
+      var rem=(t.end-Date.now())/1000, el=nodes[i]; if(!el) return;
+      var r=el.querySelector('.r'); if(rem>0){ r.textContent=fmt(rem); el.querySelector('.bar2').style.width=Math.max(0,(1-rem/t.dur)*100)+'%'; }
+    });
+    if(!state.timers.some(function(t){return t.fired;}) && document.title.indexOf('DONE')===0) document.title='Sunday Roast Planner';
+  }
+
+  /* ---------------- wake lock ---------------- */
+  var wakeLock=null;
+  function setWake(on){
+    try{
+      if(on && navigator.wakeLock){ navigator.wakeLock.request('screen').then(function(l){wakeLock=l;}).catch(function(){}); }
+      else if(!on && wakeLock){ wakeLock.release(); wakeLock=null; }
+    }catch(e){}
+  }
+  document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible' && state.wake) setWake(true); });
+
+  /* ---------------- events ---------------- */
+  document.addEventListener('click',function(e){
+    var b=e.target.closest('button'); if(!b) return;
+    if(b.closest('#segServe')){ state.serve=b.dataset.v; save(); renderAll(); return; }
+    if(b.closest('#segOven')){ state.oven=b.dataset.v; save(); renderAll(); return; }
+    if(b.id==='btnSound'){ state.sound=!state.sound; if(state.sound){ ensureAudio(); beep(); } save(); renderControls(); return; }
+    if(b.id==='btnWake'){ state.wake=!state.wake; setWake(state.wake); save(); renderControls(); return; }
+    if(b.id==='btnReset'){
+      if(b.dataset.arm){ state.done={};state.steps={};state.ing={};state.kit={}; delete b.dataset.arm; b.textContent='Reset ticks'; save(); renderAll(); }
+      else{ b.dataset.arm='1'; b.textContent='Tap again to clear all ticks'; setTimeout(function(){ if(b.dataset.arm){ delete b.dataset.arm; b.textContent='Reset ticks'; } },4000); }
+      return;
+    }
+    if(b.id==='jump'){
+      var k=nextTask(); if(k){ var el=document.getElementById('t-'+k.id); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); }
+      return;
+    }
+    if(b.dataset.timer){ ensureAudio(); addTimer(b.dataset.timer, +b.dataset.min); return; }
+    if(b.dataset.q){ ensureAudio(); addTimer('Quick timer '+b.dataset.q+' min', +b.dataset.q); return; }
+    if(b.dataset.act){
+      var id=b.closest('.dt').dataset.id, i=state.timers.findIndex(function(t){return t.id===id;});
+      if(i<0) return;
+      if(b.dataset.act==='rm'){ state.timers.splice(i,1); }
+      else{ var t=state.timers[i]; t.end=Math.max(t.end,Date.now())+60000; t.dur+=60; t.fired=false; }
+      save(); drawDock(); return;
+    }
+  });
+  document.addEventListener('change',function(e){
+    var c=e.target; if(c.type!=='checkbox') return;
+    if(c.dataset.task){
+      state.done[c.dataset.task]=c.checked;
+      var t=TASKS.filter(function(x){return x.id===c.dataset.task;})[0];
+      if(t){ t.steps.forEach(function(s,i){ state.steps[t.id+':'+i]=c.checked; }); }
+      save(); var y=window.scrollY; renderTimeline(); window.scrollTo(0,y); tick(); return;
+    }
+    if(c.dataset.step){
+      state.steps[c.dataset.step]=c.checked;
+      var tid=c.dataset.step.split(':')[0], tk=TASKS.filter(function(x){return x.id===tid;})[0];
+      if(tk){ var all=tk.steps.every(function(s,i){return state.steps[tid+':'+i];}); state.done[tid]=all; }
+      save(); var y2=window.scrollY; renderTimeline(); window.scrollTo(0,y2); tick(); return;
+    }
+    if(c.dataset.list){
+      state[c.dataset.list][c.dataset.i]=c.checked; save();
+      c.closest('li').classList.toggle('on',c.checked); return;
+    }
+  });
+
+  /* test hook */
+  window.__roast = {setNow:function(m){nowOverride=m;tick();}, state:function(){return state;}, tasks:TASKS, adj:adj, T:T};
+
+  renderAll();
+  drawDock();
+  if(state.wake) setWake(true);
+  setInterval(tick,1000);
+})();
+</script>
+</body>
+</html>
